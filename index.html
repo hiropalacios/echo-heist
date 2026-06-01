@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#050911">
+  <meta name="description" content="ECHO HEIST: Time Loop Robbery">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="assets/app_icon.png">
+  <link rel="icon" type="image/png" href="assets/app_icon.png">
+  <title>ECHO HEIST</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="rotate-device">
+    <div class="rotate-icon">📱</div>
+    <div class="rotate-text">ROTATE YOUR DEVICE</div>
+    <div class="rotate-sub">ECHO HEIST plays in landscape mode</div>
+  </div>
+  <div id="game-container">
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- HUD — same IDs as ui.js expects -->
+    <div id="hud">
+      <div id="hud-top">
+        <div id="hud-left">
+          <div id="game-title">ECHO HEIST</div>
+          <div id="level-name">Loading...</div>
+        </div>
+        <div id="hud-center">
+          <div id="objective-text">—</div>
+        </div>
+        <div id="hud-right">
+          <div id="timer-display">00:00.00</div>
+          <div id="alarm-state" class="safe">SAFE</div>
+        </div>
+      </div>
+      <div id="hud-bottom">
+        <div id="hud-bottom-left">
+          <div id="attempt-display">ATTEMPT: 1</div>
+          <div id="echo-display">ECHOES: 0</div>
+        </div>
+        <div id="hud-bottom-center"></div>
+        <div id="hud-bottom-right"></div>
+      </div>
+    </div>
+
+    <!-- Overlay — same IDs as ui.js expects -->
+    <div id="overlay">
+      <div id="overlay-content">
+        <div id="overlay-title" style="color:#00E5FF">ECHO HEIST</div>
+        <div id="overlay-body"><span style="color:#91A4B7">Loading...</span></div>
+        <div id="overlay-hint"></div>
+      </div>
+    </div>
+
+    <!-- Mobile joystick -->
+    <div id="mobile-controls">
+      <div id="joystick-zone">
+        <div id="joystick-base">
+          <div id="joystick-knob"></div>
+        </div>
+      </div>
+      <div id="mobile-actions">
+        <button class="mobile-btn mobile-action" id="btn-emp" style="border-color:rgba(168,85,247,0.5);color:#A855F7">EMP</button>
+        <button class="mobile-btn mobile-action" id="btn-retry">ECHO<br><span class="mobile-sub">retry</span></button>
+        <button class="mobile-btn mobile-action" id="btn-reset">RESET</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function showError(msg) {
+      var body = document.getElementById('overlay-body');
+      if (body) body.innerHTML = '<span style="color:#FF335C">ERROR: ' + msg + '</span>';
+      var ov = document.getElementById('overlay');
+      if (ov) ov.classList.remove('hidden');
+    }
+    window.addEventListener('error', function(e) { showError(e.message || 'Unknown error'); });
+    window.addEventListener('unhandledrejection', function(e) { showError(e.reason || 'Module load failed'); });
+  </script>
+  <script type="module">
+    try {
+      const { Game } = await import('./src/game.js');
+      const Sprites = await import('./src/sprites.js');
+
+      const canvas = document.getElementById('gameCanvas');
+
+      await Sprites.loadAllAssets();
+
+      const game = new Game(canvas);
+
+      // --- Resize: match container ---
+      function resizeCanvas() {
+        const container = document.getElementById('game-container');
+        const rect = container.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = rect.width * dpr;
+        canvas.height = rect.height * dpr;
+        canvas.style.width = rect.width + 'px';
+        canvas.style.height = rect.height + 'px';
+        game.onResize(canvas.width, canvas.height);
+      }
+      window.addEventListener('resize', resizeCanvas);
+      resizeCanvas();
+
+      // No forced fullscreen — let the browser handle it naturally
+
+      // --- Keyboard (desktop testing) ---
+      const keys = {};
+      window.addEventListener('keydown', (e) => {
+        keys[e.key.toLowerCase()] = true;
+        if (e.key.toLowerCase() === 'r') game.onRetry();
+        if (e.key.toLowerCase() === 'e') game.activateEmp();
+        if (e.key.toLowerCase() === 'n') game.onSkipLevel();
+        if (e.key === ' ') { e.preventDefault(); game.onReset(); }
+      });
+      window.addEventListener('keyup', (e) => { keys[e.key.toLowerCase()] = false; });
+
+      // --- Virtual Joystick ---
+      const joystickZone = document.getElementById('joystick-zone');
+      const joystickBase = document.getElementById('joystick-base');
+      const joystickKnob = document.getElementById('joystick-knob');
+      let joyActive = false, joyOriginX = 0, joyOriginY = 0;
+      const DEAD = 12, RADIUS = 55;
+
+      joystickZone.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        const t = e.touches[0];
+        joyActive = true;
+        const rect = joystickZone.getBoundingClientRect();
+        joyOriginX = t.clientX - rect.left;
+        joyOriginY = t.clientY - rect.top;
+        joystickBase.style.left = (joyOriginX - 65) + 'px';
+        joystickBase.style.top = (joyOriginY - 65) + 'px';
+        joystickBase.style.opacity = '1';
+      }, { passive: false });
+
+      joystickZone.addEventListener('touchmove', (e) => {
+        if (!joyActive) return;
+        e.preventDefault();
+        const t = e.touches[0];
+        const rect = joystickZone.getBoundingClientRect();
+        let dx = (t.clientX - rect.left) - joyOriginX;
+        let dy = (t.clientY - rect.top) - joyOriginY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist > RADIUS) { dx = (dx / dist) * RADIUS; dy = (dy / dist) * RADIUS; }
+        joystickKnob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+        keys['a'] = dx < -DEAD; keys['d'] = dx > DEAD;
+        keys['w'] = dy < -DEAD; keys['s'] = dy > DEAD;
+      }, { passive: false });
+
+      function joyEnd(e) {
+        e.preventDefault();
+        joyActive = false;
+        joystickBase.style.opacity = '0.4';
+        joystickKnob.style.transform = 'translate(-50%, -50%)';
+        keys['a'] = keys['d'] = keys['w'] = keys['s'] = false;
+      }
+      joystickZone.addEventListener('touchend', joyEnd);
+      joystickZone.addEventListener('touchcancel', joyEnd);
+
+      // --- Action buttons ---
+      function setupAction(id, fn) {
+        const btn = document.getElementById(id);
+        if (!btn) return;
+        btn.addEventListener('touchstart', (e) => { e.preventDefault(); fn(); });
+        btn.addEventListener('click', fn);
+      }
+      setupAction('btn-emp', () => game.activateEmp());
+      setupAction('btn-retry', () => game.onRetry());
+      setupAction('btn-reset', () => game.onReset());
+
+      // Tap overlay to interact
+      document.getElementById('overlay').addEventListener('click', () => {
+        game.onRetry();
+      });
+
+      // --- Game loop ---
+      let lastTime = 0;
+      function gameLoop(timestamp) {
+        const dt = Math.min((timestamp - lastTime) / 1000, 0.05);
+        lastTime = timestamp;
+        game.update(dt, keys);
+        game.render();
+        requestAnimationFrame(gameLoop);
+      }
+      requestAnimationFrame((ts) => { lastTime = ts; requestAnimationFrame(gameLoop); });
+
+      // --- Service Worker ---
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('./sw.js').catch(() => {});
+      }
+    } catch (err) {
+      showError('Failed to load game: ' + err.message);
+      console.error(err);
+    }
+  </script>
+</body>
+</html>

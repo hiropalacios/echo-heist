@@ -1,0 +1,19 @@
+{
+  "name": "ECHO HEIST: Time Loop Robbery",
+  "short_name": "ECHO HEIST",
+  "description": "Rob impossible vaults by teaming up with your past selves",
+  "start_url": "/",
+  "display": "fullscreen",
+  "orientation": "any",
+  "background_color": "#050911",
+  "theme_color": "#050911",
+  "categories": ["games"],
+  "icons": [
+    {
+      "src": "assets/app_icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
