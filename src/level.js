@@ -1231,6 +1231,137 @@ const LEVEL_15 = {
   ],
 };
 
+// ─── BOSS-1: The Nexus Vault ────────────────────────────────────────
+//
+//   ┌────────────────────────────────────┐
+//   │ CAM1↓   ┌──DoorC──────┐   CAM2↓  │
+//   │         │  MEGA VAULT  │          │
+//   │  BTN C  │   ◆ LOOT    │   EMP    │
+//   │         │             │          │
+//   │         └─────────────┘          │
+//   │  CAM3→                    ←CAM3  │
+//   │  ┌─DoorA─┐       ┌─DoorB─┐      │
+//   │  │       │       │       │      │
+//   │  │       │  GRD1 │       │ GRD2 │
+//   │  BTN A   │   ↔   │  BTN B│  ↕   │
+//   │         SPAWN         EXIT      │
+//   └────────────────────────────────────┘
+//
+//   3 buttons, 3 doors, 3 cameras, 2 guards, 1 EMP, 60s timer.
+//   Solution: 4 attempts (echo on each button + final run with EMP).
+//
+export const BOSS_1 = {
+  name: 'THE NEXUS VAULT',
+  subtitle: 'BOSS STAGE',
+  timerDuration: 60,
+  objectiveSequence: ['BREACH THE VAULT', 'STEAL THE NEXUS CORE', 'ESCAPE!'],
+  spawn: { x: 8, y: 13 },
+  walls: [
+    // Outer
+    { x: 0, y: 0, w: LEVEL_WIDTH, h: 0.5 },
+    { x: 0, y: LEVEL_HEIGHT - 0.5, w: LEVEL_WIDTH, h: 0.5 },
+    { x: 0, y: 0, w: 0.5, h: LEVEL_HEIGHT },
+    { x: LEVEL_WIDTH - 0.5, y: 0, w: 0.5, h: LEVEL_HEIGHT },
+
+    // Mega vault box (x=6-14, y=1-5.5)
+    // Top wall (solid)
+    { x: 6, y: 1, w: 8, h: 0.5 },
+    // Left wall (solid)
+    { x: 6, y: 1.5, w: 0.5, h: 4 },
+    // Right wall (solid)
+    { x: 13.5, y: 1.5, w: 0.5, h: 4 },
+    // Bottom wall — door C gap at x=8.5-11.5
+    { x: 6.5, y: 5, w: 2, h: 0.5 },
+    { x: 11.5, y: 5, w: 2, h: 0.5 },
+
+    // Left room wall — door A gap at y=8-9.5
+    { x: 5, y: 6, w: 0.5, h: 2 },
+    { x: 5, y: 9.5, w: 0.5, h: 5 },
+
+    // Right room wall — door B gap at y=8-9.5
+    { x: 14.5, y: 6, w: 0.5, h: 2 },
+    { x: 14.5, y: 9.5, w: 0.5, h: 5 },
+
+    // Center divider below vault (forces left or right path)
+    { x: 9.5, y: 6, w: 1, h: 3 },
+  ],
+  buttons: [
+    { id: 'btnA', x: 1.5, y: 10.5, w: 1.5, h: 1.5, linkedDoors: ['doorA'], label: 'A' },
+    { id: 'btnB', x: 17, y: 10.5, w: 1.5, h: 1.5, linkedDoors: ['doorB'], label: 'B' },
+    { id: 'btnC', x: 1.5, y: 3, w: 1.5, h: 1.5, linkedDoors: ['doorC'], label: 'C' },
+  ],
+  doors: [
+    { id: 'doorA', x: 5, y: 8, w: 0.5, h: 1.5 },
+    { id: 'doorB', x: 14.5, y: 8, w: 0.5, h: 1.5 },
+    { id: 'doorC', x: 8.5, y: 5, w: 3, h: 0.5 },
+  ],
+  cameras: [
+    {
+      x: 4, y: 0.8,
+      sweepCenter: Math.PI * 0.5,
+      sweepRange: Math.PI * 0.5,
+      sweepSpeed: 1.0,
+      coneLength: 5,
+      coneAngle: Math.PI / 6,
+    },
+    {
+      x: 16, y: 0.8,
+      sweepCenter: Math.PI * 0.5,
+      sweepRange: Math.PI * 0.5,
+      sweepSpeed: 0.8,
+      coneLength: 5,
+      coneAngle: Math.PI / 6,
+    },
+    {
+      x: 0.8, y: 7,
+      sweepCenter: 0,
+      sweepRange: Math.PI * 0.4,
+      sweepSpeed: 0.9,
+      coneLength: 4.5,
+      coneAngle: Math.PI / 7,
+    },
+  ],
+  guards: [
+    {
+      waypoints: [
+        { x: 8, y: 8 },
+        { x: 8, y: 12 },
+        { x: 12, y: 12 },
+        { x: 12, y: 8 },
+      ],
+      speed: 2.5,
+      coneLength: 2.8,
+      coneAngle: Math.PI / 5,
+      radius: 0.4,
+    },
+    {
+      waypoints: [
+        { x: 17, y: 6 },
+        { x: 17, y: 13 },
+      ],
+      speed: 2.2,
+      coneLength: 2.5,
+      coneAngle: Math.PI / 5,
+      radius: 0.4,
+    },
+  ],
+  loot: { x: 10, y: 3, r: 0.6 },
+  exit: { x: 16, y: 13, w: 2.5, h: 1.2 },
+  empPickups: [
+    { x: 17, y: 3.5, r: 0.4 },
+  ],
+  floorZones: [
+    { x: 6.5, y: 1.5, w: 7, h: 3.5, color: '#1A0A1E' },
+  ],
+  starThresholds: [
+    { stars: 5, maxAttempts: 4, maxEchoes: 3, maxTime: 30 },
+    { stars: 4, maxAttempts: 5, maxEchoes: 3, maxTime: 40 },
+    { stars: 3, maxAttempts: 6, maxEchoes: 4, maxTime: 50 },
+    { stars: 2, maxAttempts: 8, maxEchoes: 6, maxTime: 60 },
+    { stars: 1, maxAttempts: Infinity, maxEchoes: Infinity, maxTime: Infinity },
+  ],
+};
+
 // ─── Level registry ─────────────────────────────────────────────────
 export const LEVELS = [LEVEL_1, LEVEL_2, LEVEL_3, LEVEL_4, LEVEL_5, LEVEL_6, LEVEL_7, LEVEL_8, LEVEL_9, LEVEL_10, LEVEL_11, LEVEL_12, LEVEL_13, LEVEL_14, LEVEL_15];
 

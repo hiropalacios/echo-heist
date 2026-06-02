@@ -2,7 +2,7 @@
 
 import { Player } from './player.js';
 import { EchoRecorder, EchoReplayAgent } from './echo.js';
-import { createLevel, resetLevel, getLevelData, LEVELS, LEVEL_WIDTH, LEVEL_HEIGHT, calculateStars } from './level.js';
+import { createLevel, resetLevel, getLevelData, LEVELS, LEVEL_WIDTH, LEVEL_HEIGHT, calculateStars, BOSS_1 } from './level.js';
 import { updateCamera, initCamera, isInCameraCone, getConePoints } from './camera.js';
 import { circleRectOverlap } from './collision.js';
 import * as UI from './ui.js';
@@ -44,7 +44,9 @@ export class Game {
     this.pulseTime = 0;
     this.animFrame = 0;
     this.empFlash = 0;
-    this.debug = new URLSearchParams(window.location.search).get('debug') === 'true';
+    const params = new URLSearchParams(window.location.search);
+    this.debug = params.get('debug') === 'true';
+    this.requestedStage = params.get('stage');
     this._lootSoundPlayed = false;
     this.tutorialShown = JSON.parse(localStorage.getItem('echoheist_tutorials') || '{}');
 
@@ -57,7 +59,13 @@ export class Game {
     Save.load();
 
     for (const cam of this.level.cameras) initCamera(cam);
-    this.showLevelSelect();
+
+    // Check for special stage URL: ?stage=boss-1
+    if (this.requestedStage === 'boss-1') {
+      this.loadBossLevel(BOSS_1);
+    } else {
+      this.showLevelSelect();
+    }
   }
 
   onResize(w, h) {
@@ -81,6 +89,45 @@ export class Game {
       clearTimeout(this._autoAdvanceTimer);
       this._autoAdvanceTimer = null;
     }
+  }
+
+  loadBossLevel(bossData) {
+    this.cancelAutoAdvance();
+    this.currentLevelIndex = -1; // special
+    this.levelData = bossData;
+    this.level = {};
+    // Manual reset using boss data directly
+    this.level._index = -1;
+    this.level._data = bossData;
+    this.level.walls = bossData.walls.map(w => ({ ...w }));
+    this.level.buttons = bossData.buttons.map(b => ({ ...b, isPressed: false }));
+    this.level.doors = bossData.doors.map(d => ({ ...d, isOpen: false }));
+    this.level.cameras = bossData.cameras.map(c => ({ ...c, direction: c.sweepCenter }));
+    this.level.guards = bossData.guards.map(g => ({
+      ...g, waypoints: g.waypoints.map(wp => ({ ...wp })),
+      x: g.waypoints[0].x, y: g.waypoints[0].y,
+      waypointIndex: 0, facingAngle: Math.PI / 2, facingDirection: 'down', guardMoving: false,
+    }));
+    this.level.loot = { ...bossData.loot, collected: false };
+    this.level.exit = { ...bossData.exit, active: false };
+    this.level.floorZones = bossData.floorZones || [];
+    this.level.empPickups = (bossData.empPickups || []).map(e => ({ ...e, collected: false }));
+    this.level.empActive = false;
+    this.level.empTimer = 0;
+    this.level.timer = bossData.timerDuration;
+    this.level.objectiveIndex = 0;
+    for (const cam of this.level.cameras) initCamera(cam);
+    this.player.reset(bossData.spawn.x, bossData.spawn.y);
+    this.echoes = [];
+    this.recordings = [];
+    this.attempt = 1;
+    this.elapsedTime = 0;
+    this._lootSoundPlayed = false;
+    this.state = STATE_START;
+    UI.showStartOverlay(bossData);
+    UI.updateAttempt(1);
+    UI.updateEchoCount(0);
+    UI.updateLevelName(bossData.name);
   }
 
   showLevelSelect() {
@@ -187,7 +234,11 @@ export class Game {
     this.glitchActive = true;
     this.glitchTimer = 0.3;
 
-    resetLevel(this.level, this.currentLevelIndex);
+    if (this.currentLevelIndex === -1) {
+      this.loadBossLevel(this.levelData);
+    } else {
+      resetLevel(this.level, this.currentLevelIndex);
+    }
     for (const cam of this.level.cameras) initCamera(cam);
     this.player.reset(this.levelData.spawn.x, this.levelData.spawn.y);
     this.elapsedTime = 0;
@@ -216,7 +267,11 @@ export class Game {
     this.glitchActive = true;
     this.glitchTimer = 0.3;
 
-    resetLevel(this.level, this.currentLevelIndex);
+    if (this.currentLevelIndex === -1) {
+      this.loadBossLevel(this.levelData);
+    } else {
+      resetLevel(this.level, this.currentLevelIndex);
+    }
     for (const cam of this.level.cameras) initCamera(cam);
     this.player.reset(this.levelData.spawn.x, this.levelData.spawn.y);
     this.echoes = [];
