@@ -2,7 +2,8 @@
 
 import { Player } from './player.js';
 import { EchoRecorder, EchoReplayAgent } from './echo.js';
-import { createLevel, resetLevel, getLevelData, LEVELS, LEVEL_WIDTH, LEVEL_HEIGHT, calculateStars, BOSS_1 } from './level.js';
+import { createLevel, resetLevel, getLevelData, LEVELS, LEVEL_WIDTH, LEVEL_HEIGHT, calculateStars } from './level.js';
+import { BossStage } from './boss-stage.js';
 import { updateCamera, initCamera, isInCameraCone, getConePoints } from './camera.js';
 import { circleRectOverlap } from './collision.js';
 import * as UI from './ui.js';
@@ -62,7 +63,9 @@ export class Game {
 
     // Check for special stage URL: ?stage=boss-1
     if (this.requestedStage === 'boss-1') {
-      this.loadBossLevel(BOSS_1);
+      this.bossStage = new BossStage(canvas);
+      this.bossStage.onResize(this.width, this.height);
+      this.state = 'boss';
     } else {
       this.showLevelSelect();
     }
@@ -78,6 +81,7 @@ export class Game {
     this.scale = Math.min(usableW / LEVEL_WIDTH, usableH / LEVEL_HEIGHT);
     this.offsetX = (w - LEVEL_WIDTH * this.scale) / 2;
     this.offsetY = (h - LEVEL_HEIGHT * this.scale) / 2;
+    if (this.bossStage) this.bossStage.onResize(w, h);
   }
 
   gx(x) { return this.offsetX + x * this.scale; }
@@ -316,6 +320,18 @@ export class Game {
 
   // ─── UPDATE ─────────────────────────────────────────────────────────
   update(dt, keys) {
+    if (this.state === 'boss' && this.bossStage) {
+      this.bossStage.update(dt, keys);
+      // Retry on defeat
+      if (this.bossStage.state === 'defeat' && (keys['r'] || keys[' '])) {
+        this.bossStage = new BossStage(this.canvas);
+        this.bossStage.onResize(this.width, this.height);
+        keys['r'] = false;
+        keys[' '] = false;
+      }
+      return;
+    }
+
     this.pulseTime += dt;
     this.animFrame += dt * 8;
 
@@ -564,6 +580,11 @@ export class Game {
 
     ctx.fillStyle = '#050911';
     ctx.fillRect(0, 0, w, h);
+
+    if (this.state === 'boss' && this.bossStage) {
+      this.bossStage.render();
+      return;
+    }
 
     if (this.glitchActive) { this.renderGlitch(ctx, w, h); return; }
 
