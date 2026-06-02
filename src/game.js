@@ -63,12 +63,11 @@ export class Game {
   onResize(w, h) {
     this.width = w;
     this.height = h;
-    const dpr = window.devicePixelRatio || 1;
-    const padX = 16 * dpr;
-    const padY = 32 * dpr;
-    const scaleX = (w - padX * 2) / LEVEL_WIDTH;
-    const scaleY = (h - padY * 2) / LEVEL_HEIGHT;
-    this.scale = Math.min(scaleX, scaleY);
+    // Fit level inside screen — always 100% visible, never overflows
+    // Use 95% of available space to leave margin for HUD
+    const usableW = w * 1.0;
+    const usableH = h * 0.92;
+    this.scale = Math.min(usableW / LEVEL_WIDTH, usableH / LEVEL_HEIGHT);
     this.offsetX = (w - LEVEL_WIDTH * this.scale) / 2;
     this.offsetY = (h - LEVEL_HEIGHT * this.scale) / 2;
   }

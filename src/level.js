@@ -1,7 +1,7 @@
 // Level data for ECHO HEIST — multi-level support
 // All coordinates in game units. Design space: 20 x 15 units.
 
-export const LEVEL_WIDTH = 24;
+export const LEVEL_WIDTH = 20;
 export const LEVEL_HEIGHT = 15;
 
 // ─── LEVEL 1: Ghost in the Machine ──────────────────────────────────
