@@ -179,6 +179,7 @@
 
       // Tap overlay to interact
       document.getElementById('overlay').addEventListener('click', () => {
+        if (game.state === 'boss') return; // don't interfere with boss mode
         game.onRetry();
       });
 

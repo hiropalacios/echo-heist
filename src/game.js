@@ -66,6 +66,7 @@ export class Game {
       this.bossStage = new BossStage(canvas);
       this.bossStage.onResize(this.width, this.height);
       this.state = 'boss';
+      UI.hideOverlay();
     } else {
       this.showLevelSelect();
     }
