@@ -65,7 +65,7 @@ export class Game {
     this.height = h;
     // Fit level inside screen — always 100% visible, never overflows
     // Use 95% of available space to leave margin for HUD
-    const usableW = w * 1.0;
+    const usableW = w * 1.15;
     const usableH = h * 0.92;
     this.scale = Math.min(usableW / LEVEL_WIDTH, usableH / LEVEL_HEIGHT);
     this.offsetX = (w - LEVEL_WIDTH * this.scale) / 2;
