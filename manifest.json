@@ -1,19 +1,37 @@
 {
   "name": "ECHO HEIST: Time Loop Robbery",
   "short_name": "ECHO HEIST",
-  "description": "Rob impossible vaults by teaming up with your past selves",
-  "start_url": "/",
+  "description": "Rob impossible vaults by teaming up with your past selves. A stealth puzzle game where every failed attempt becomes an echo that replays your moves.",
+  "start_url": "./index.html",
+  "scope": "./",
   "display": "fullscreen",
-  "orientation": "any",
+  "orientation": "landscape",
   "background_color": "#050911",
   "theme_color": "#050911",
-  "categories": ["games"],
+  "categories": ["games", "puzzle"],
+  "lang": "en",
+  "dir": "ltr",
   "icons": [
     {
       "src": "assets/app_icon.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "assets/app_icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "assets/app_icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "ECHO HEIST gameplay"
     }
   ]
 }

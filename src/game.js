@@ -236,7 +236,7 @@ export class Game {
 
   activateEmp() {
     if (this.state !== STATE_PLAYING) return;
-    if (this.player.empCharges <= 0) return;
+    if (this.player.empCharges <= 0 && !this.debug) return;
     if (this.level.empActive) return;
     this.player.empCharges--;
     this.level.empActive = true;
@@ -577,7 +577,7 @@ export class Game {
     }
 
     // EMP HUD indicator
-    if (this.player.empCharges > 0 || this.level.empActive) {
+    if (this.player.empCharges > 0 || this.level.empActive || this.debug) {
       const dpr = window.devicePixelRatio || 1;
       const fs = 12 * dpr;
       const hx = w - 120 * dpr;
