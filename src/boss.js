@@ -1,53 +1,38 @@
 // FireEchoBoss — Boss-1 for ECHO HEIST
-// Uses: assets/boss1.png (3x3 body poses) + assets/boss1-skills.png (4x4 fire FX)
+// Uses: boss1-v2 (1536x1536, 3x3 grid, 512px cells) + boss1-skills-v2 (2048x2048, 4x4 grid, 512px cells)
 
-// ─── Sprite crop constants ─────────────────────────────────────
-// boss1.png: 1122x1402, 3 columns x 3 rows
-const BOSS_FRAME_W = 374;
-const BOSS_FRAME_H = 467;
-
-export const BOSS_POSES = {
-  idle:     { col: 0, row: 0 },
-  idle2:    { col: 1, row: 0 },
-  idle3:    { col: 2, row: 0 },
-  castL:    { col: 0, row: 1 },
-  castR:    { col: 1, row: 1 },
-  castBoth: { col: 2, row: 1 },
-  hit:      { col: 0, row: 2 },
-  special:  { col: 1, row: 2 },
-  down:     { col: 2, row: 2 },
+// ─── Boss body frames (boss1-v2.png / .svg — 1536x1536, 512px cells) ───
+export const BOSS1_FRAMES = {
+  idleA:   { x: 0,    y: 0,    w: 512, h: 512 },
+  idleB:   { x: 512,  y: 0,    w: 512, h: 512 },
+  moveA:   { x: 1024, y: 0,    w: 512, h: 512 },
+  moveB:   { x: 0,    y: 512,  w: 512, h: 512 },
+  castA:   { x: 512,  y: 512,  w: 512, h: 512 },
+  castB:   { x: 1024, y: 512,  w: 512, h: 512 },
+  attack:  { x: 0,    y: 1024, w: 512, h: 512 },
+  hurt:    { x: 512,  y: 1024, w: 512, h: 512 },
+  defeat:  { x: 1024, y: 1024, w: 512, h: 512 },
 };
 
-// boss1-skills.png: 1122x1402, 4 columns x 4 rows
-const SKILL_FRAME_W = 280;
-const SKILL_FRAME_H = 350;
-
-export const SKILL_FX = {
-  meteorFall:    { col: 0, row: 0 },
-  fireBurst:     { col: 1, row: 0 },
-  fireball:      { col: 2, row: 0 },
-  targetX:       { col: 3, row: 0 },
-  fireRing:      { col: 0, row: 1 },
-  firePillar:    { col: 1, row: 1 },
-  darkExplosion: { col: 2, row: 1 },
-  burstSpark:    { col: 3, row: 1 },
-  ringSigil:     { col: 0, row: 2 },
-  fireColumn:    { col: 1, row: 2 },
-  groundMark:    { col: 2, row: 2 },
-  particles:     { col: 3, row: 2 },
-  starBurst:     { col: 0, row: 3 },
-  ringGlow:      { col: 1, row: 3 },
-  ringTarget:    { col: 2, row: 3 },
-  fireWave:      { col: 3, row: 3 },
+// ─── Skill FX frames (boss1-skills-v2.png / .svg — 2048x2048, 512px cells) ───
+export const BOSS1_SKILLS = {
+  smallAura:       { x: 0,    y: 0,    w: 512, h: 512 },
+  largeAura:       { x: 512,  y: 0,    w: 512, h: 512 },
+  fireball:        { x: 1024, y: 0,    w: 512, h: 512 },
+  chargedFireball: { x: 1536, y: 0,    w: 512, h: 512 },
+  meteor:          { x: 0,    y: 512,  w: 512, h: 512 },
+  meteorImpact:    { x: 512,  y: 512,  w: 512, h: 512 },
+  xTarget:         { x: 1024, y: 512,  w: 512, h: 512 },
+  warningRing:     { x: 1536, y: 512,  w: 512, h: 512 },
+  flameRing:       { x: 0,    y: 1024, w: 512, h: 512 },
+  flamePillar:     { x: 512,  y: 1024, w: 512, h: 512 },
+  groundBurn:      { x: 1024, y: 1024, w: 512, h: 512 },
+  emberBurst:      { x: 1536, y: 1024, w: 512, h: 512 },
+  fireTrail:       { x: 0,    y: 1536, w: 512, h: 512 },
+  castCharge:      { x: 512,  y: 1536, w: 512, h: 512 },
+  hitSpark:        { x: 1024, y: 1536, w: 512, h: 512 },
+  smokePuff:       { x: 1536, y: 1536, w: 512, h: 512 },
 };
-
-export function getBossSrcRect(pose) {
-  return { sx: pose.col * BOSS_FRAME_W, sy: pose.row * BOSS_FRAME_H, sw: BOSS_FRAME_W, sh: BOSS_FRAME_H };
-}
-
-export function getSkillSrcRect(fx) {
-  return { sx: fx.col * SKILL_FRAME_W, sy: fx.row * SKILL_FRAME_H, sw: SKILL_FRAME_W, sh: SKILL_FRAME_H };
-}
 
 // ─── FireEchoBoss ──────────────────────────────────────────────
 
@@ -61,7 +46,7 @@ export class FireEchoBoss {
     this.alive = true;
     this.state = 'idle';
     this.stateTimer = 0;
-    this.currentPose = BOSS_POSES.idle;
+    this.currentFrame = BOSS1_FRAMES.idleA;
     this.currentAttack = null;
     this.attackCooldown = 0;
     this.lastAttack = -1;
@@ -71,7 +56,7 @@ export class FireEchoBoss {
     this.floatOffset = 0;
     this.auraAlpha = 0.5;
     this.castShake = 0;
-    this.idleFrame = 0;
+    this.idleTimer = 0;
     this.attacks = [
       { name: 'meteor',  cooldown: 2.2 },
       { name: 'fireball', cooldown: 1.4 },
@@ -87,8 +72,8 @@ export class FireEchoBoss {
     if (!this.alive) return;
     this.hp -= amount;
     this.castShake = 0.25;
-    this.currentPose = BOSS_POSES.hit;
-    if (this.hp <= 0) { this.hp = 0; this.alive = false; this.state = 'dead'; this.currentPose = BOSS_POSES.down; }
+    this.currentFrame = BOSS1_FRAMES.hurt;
+    if (this.hp <= 0) { this.hp = 0; this.alive = false; this.state = 'dead'; this.currentFrame = BOSS1_FRAMES.defeat; }
   }
 
   update(dt, playerX, playerY) {
@@ -97,7 +82,7 @@ export class FireEchoBoss {
     this.targetY = playerY;
     this.floatOffset = Math.sin(Date.now() * 0.003) * 5;
     this.auraAlpha = 0.35 + Math.sin(Date.now() * 0.005) * 0.15;
-    this.idleFrame += dt;
+    this.idleTimer += dt;
     if (this.castShake > 0) this.castShake -= dt;
 
     for (let i = 0; i < 4; i++) if (this.attackCooldowns[i] > 0) this.attackCooldowns[i] -= dt;
@@ -105,12 +90,12 @@ export class FireEchoBoss {
 
     switch (this.state) {
       case 'idle':
-        this.currentPose = this.idleFrame % 2 < 1 ? BOSS_POSES.idle : BOSS_POSES.idle2;
+        this.currentFrame = this.idleTimer % 1.2 < 0.6 ? BOSS1_FRAMES.idleA : BOSS1_FRAMES.idleB;
         this.stateTimer += dt;
         if (this.stateTimer > 0.8) { this.state = 'tracking'; this.stateTimer = 0; }
         break;
       case 'tracking':
-        this.currentPose = BOSS_POSES.idle3;
+        this.currentFrame = this.idleTimer % 1 < 0.5 ? BOSS1_FRAMES.moveA : BOSS1_FRAMES.moveB;
         if (this.attackCooldown <= 0) {
           const idx = this.chooseAttack(playerX, playerY);
           if (idx >= 0) {
@@ -118,13 +103,15 @@ export class FireEchoBoss {
             this.state = 'casting';
             this.stateTimer = 0;
             this.castShake = 0.4;
-            this.currentPose = idx <= 1 ? BOSS_POSES.castR : BOSS_POSES.castBoth;
+            this.currentFrame = idx % 2 === 0 ? BOSS1_FRAMES.castA : BOSS1_FRAMES.castB;
           }
         }
         break;
       case 'casting':
         this.stateTimer += dt;
+        this.currentFrame = this.stateTimer % 0.4 < 0.2 ? BOSS1_FRAMES.castA : BOSS1_FRAMES.castB;
         if (this.stateTimer > 0.5) {
+          this.currentFrame = BOSS1_FRAMES.attack;
           this.executeAttack(this.currentAttack);
           this.attackCooldowns[this.currentAttack] = this.attacks[this.currentAttack].cooldown;
           this.attackCooldown = 0.8;
@@ -135,7 +122,7 @@ export class FireEchoBoss {
         }
         break;
       case 'cooldown':
-        this.currentPose = BOSS_POSES.idle;
+        this.currentFrame = BOSS1_FRAMES.idleA;
         this.stateTimer += dt;
         if (this.stateTimer > 1.0) { this.state = 'tracking'; this.stateTimer = 0; }
         break;
@@ -153,10 +140,10 @@ export class FireEchoBoss {
       const e = this.effects[i];
       e.timer += dt;
       if (e.type === 'meteor_mark' && e.timer >= e.telegraph) { e.type = 'meteor_explode'; e.timer = 0; e.duration = 0.5; }
-      else if (e.type === 'meteor_explode' && e.timer >= e.duration) { this.effects.splice(i, 1); }
+      else if (e.type === 'meteor_explode' && e.timer >= e.duration) this.effects.splice(i, 1);
       else if (e.type === 'ring') { e.currentRadius = e.startRadius + (e.endRadius - e.startRadius) * (e.timer / e.duration); if (e.timer >= e.duration) this.effects.splice(i, 1); }
       else if (e.type === 'pillar_mark' && e.timer >= e.telegraph) { e.type = 'pillar_fire'; e.timer = 0; e.duration = 0.6; }
-      else if (e.type === 'pillar_fire' && e.timer >= e.duration) { this.effects.splice(i, 1); }
+      else if (e.type === 'pillar_fire' && e.timer >= e.duration) this.effects.splice(i, 1);
     }
   }
 
