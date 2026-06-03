@@ -17,6 +17,23 @@ export class BossStage {
     this.player = { x: AW / 2, y: AH - 80, radius: PR, hp: 100, maxHp: 100, speed: PS, alive: true, acd: 0, inv: 0 };
     this.boss = new FireEchoBoss(AW / 2, 100);
     this.state = 'fighting'; this.time = 0; this.dmgFlash = 0; this.vt = 0;
+
+    // Boss music
+    this.music = new Audio('assets/track-boss.mp3');
+    this.music.loop = true;
+    this.music.volume = 0.5;
+    this.musicStarted = false;
+  }
+
+  startMusic() {
+    if (this.musicStarted) return;
+    this.music.play().catch(() => {});
+    this.musicStarted = true;
+  }
+
+  stopMusic() {
+    this.music.pause();
+    this.music.currentTime = 0;
   }
 
   onResize(w, h) { this.w = w; this.h = h; this.scale = Math.min((w * 0.9) / AW, (h * 0.85) / AH); this.ox = (w - AW * this.scale) / 2; this.oy = (h - AH * this.scale) / 2; }
@@ -127,7 +144,8 @@ export class BossStage {
 
   // ─── UPDATE ─────────────────────────────────────────────────
   update(dt, keys) {
-    if (this.state !== 'fighting') { this.vt += dt; return; }
+    if (this.state !== 'fighting') { this.vt += dt; if (this.vt > 0.1 && this.musicStarted) this.stopMusic(); return; }
+    this.startMusic();
     this.time += dt;
     if (this.dmgFlash > 0) this.dmgFlash -= dt * 3;
     const p = this.player;
