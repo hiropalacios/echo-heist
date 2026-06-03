@@ -16,13 +16,21 @@ export class BossStage {
     this.skillsImg = new Image(); this.skillsImg.src = 'assets/skills-final.png';
     this.player = { x: AW / 2, y: AH - 80, radius: PR, hp: 100, maxHp: 100, speed: PS, alive: true, acd: 0, inv: 0 };
     this.boss = new FireEchoBoss(AW / 2, 100);
-    this.state = 'fighting'; this.time = 0; this.dmgFlash = 0; this.vt = 0;
+    this.state = 'loading'; this.time = 0; this.dmgFlash = 0; this.vt = 0;
 
-    // Boss music
+    // Boss music — preload before starting
     this.music = new Audio('assets/track-boss.mp3');
     this.music.loop = true;
     this.music.volume = 0.5;
+    this.musicReady = false;
     this.musicStarted = false;
+    this.loadDots = 0;
+
+    this.music.addEventListener('canplaythrough', () => { this.musicReady = true; }, { once: true });
+    this.music.load();
+
+    // Timeout fallback — start anyway after 8s
+    setTimeout(() => { this.musicReady = true; }, 8000);
   }
 
   startMusic() {
@@ -34,6 +42,7 @@ export class BossStage {
   stopMusic() {
     this.music.pause();
     this.music.currentTime = 0;
+    this.musicStarted = false;
   }
 
   onResize(w, h) { this.w = w; this.h = h; this.scale = Math.min((w * 0.9) / AW, (h * 0.85) / AH); this.ox = (w - AW * this.scale) / 2; this.oy = (h - AH * this.scale) / 2; }
@@ -144,8 +153,17 @@ export class BossStage {
 
   // ─── UPDATE ─────────────────────────────────────────────────
   update(dt, keys) {
+    // Loading: wait for music + assets
+    if (this.state === 'loading') {
+      this.loadDots += dt;
+      if (this.musicReady && this.bossImg.complete && this.skillsImg.complete) {
+        this.state = 'fighting';
+        this.startMusic();
+      }
+      return;
+    }
+
     if (this.state !== 'fighting') { this.vt += dt; if (this.vt > 0.1 && this.musicStarted) this.stopMusic(); return; }
-    this.startMusic();
     this.time += dt;
     if (this.dmgFlash > 0) this.dmgFlash -= dt * 3;
     const p = this.player;
@@ -181,6 +199,30 @@ export class BossStage {
   render() {
     const ctx = this.ctx, w = this.w, h = this.h;
     ctx.fillStyle = '#050911'; ctx.fillRect(0, 0, w, h);
+
+    // Loading screen
+    if (this.state === 'loading') {
+      const dpr = window.devicePixelRatio || 1;
+      const dots = '.'.repeat(Math.floor(this.loadDots * 2) % 4);
+      ctx.fillStyle = '#FF5525';
+      ctx.font = `bold ${20 * dpr}px Rajdhani, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.fillText('BOSS-1: FIRE ECHO', w / 2, h / 2 - 20 * dpr);
+      ctx.fillStyle = '#91A4B7';
+      ctx.font = `${14 * dpr}px Rajdhani, sans-serif`;
+      ctx.fillText(`Loading${dots}`, w / 2, h / 2 + 10 * dpr);
+      // Progress bar
+      const barW = 150 * dpr, barH = 6 * dpr;
+      const bx = (w - barW) / 2, by = h / 2 + 30 * dpr;
+      ctx.fillStyle = '#1A0808'; ctx.fillRect(bx, by, barW, barH);
+      let progress = 0;
+      if (this.bossImg.complete) progress += 0.33;
+      if (this.skillsImg.complete) progress += 0.33;
+      if (this.musicReady) progress += 0.34;
+      ctx.fillStyle = '#FF4020'; ctx.fillRect(bx, by, barW * progress, barH);
+      return;
+    }
+
     const ax = this.sx(0), ay = this.sy(0), aw = this.ss(AW), ah = this.ss(AH);
     ctx.fillStyle = '#0A0E14'; ctx.fillRect(ax, ay, aw, ah);
     ctx.strokeStyle = 'rgba(255,30,10,0.03)'; ctx.lineWidth = 1;
