@@ -1,7 +1,8 @@
 // Boss Stage — ECHO HEIST Boss Fight Mode
-// Layered rendering: baseBody from boss1.png, all FX from boss1-skills.png
+// Uses CLEAN SVG assets: assets/boss1/boss1-body.svg + individual FX SVGs
+// No dirty PNGs with baked checkerboard backgrounds
 
-import { FireEchoBoss, BOSS_POSES, SKILL_FX, getBossSrcRect, getSkillSrcRect } from './boss.js';
+import { FireEchoBoss } from './boss.js';
 
 const ARENA_W = 600;
 const ARENA_H = 500;
@@ -10,6 +11,13 @@ const PLAYER_RADIUS = 16;
 const PLAYER_ATTACK_DMG = 10;
 const PLAYER_ATTACK_RANGE = 60;
 const PLAYER_ATTACK_CD = 0.4;
+
+// ─── Asset loader ──────────────────────────────────────────────
+function loadImg(src) {
+  const img = new Image();
+  img.src = src;
+  return img;
+}
 
 export class BossStage {
   constructor(canvas) {
@@ -21,11 +29,17 @@ export class BossStage {
     this.offsetX = 0;
     this.offsetY = 0;
 
-    // Load NEW clean sprite sheets
-    this.bossImg = new Image();
-    this.bossImg.src = 'assets/boss1.png';
-    this.skillsImg = new Image();
-    this.skillsImg.src = 'assets/boss1-skills.png';
+    // Load clean SVG assets (transparent by nature)
+    this.svgs = {
+      body:      loadImg('assets/boss1/boss1-body.svg'),
+      fireball:  loadImg('assets/boss1/fireball.svg'),
+      xMarker:   loadImg('assets/boss1/x-marker.svg'),
+      impact:    loadImg('assets/boss1/meteor-impact.svg'),
+      ring:      loadImg('assets/boss1/flame-ring.svg'),
+      pillar:    loadImg('assets/boss1/flame-pillar.svg'),
+      warning:   loadImg('assets/boss1/warning-ring.svg'),
+      charge:    loadImg('assets/boss1/cast-charge.svg'),
+    };
 
     this.player = {
       x: ARENA_W / 2, y: ARENA_H - 80,
@@ -54,37 +68,27 @@ export class BossStage {
   sy(y) { return this.offsetY + y * this.scale; }
   ss(s) { return s * this.scale; }
 
-  // ─── Draw helpers for spritesheets ──────────────────────────
-  drawBossPose(ctx, pose, cx, cy, size) {
-    if (!this.bossImg.complete) {
-      ctx.fillStyle = '#FF3020';
-      ctx.beginPath(); ctx.arc(cx, cy, size * 0.3, 0, Math.PI * 2); ctx.fill();
-      return;
-    }
-    const r = getBossSrcRect(pose);
-    ctx.drawImage(this.bossImg, r.sx, r.sy, r.sw, r.sh, cx - size / 2, cy - size * 0.7, size, size * 1.4);
-  }
-
-  drawSkillFx(ctx, fx, cx, cy, size, alpha) {
-    if (!this.skillsImg.complete) return;
-    const r = getSkillSrcRect(fx);
+  // Draw an SVG image centered at (cx, cy)
+  drawSvg(ctx, img, cx, cy, w, h, alpha) {
+    if (!img || !img.complete || img.naturalWidth === 0) return false;
     const prev = ctx.globalAlpha;
     if (alpha !== undefined) ctx.globalAlpha = alpha;
-    ctx.drawImage(this.skillsImg, r.sx, r.sy, r.sw, r.sh, cx - size / 2, cy - size / 2, size, size);
+    ctx.drawImage(img, cx - w / 2, cy - h / 2, w, h);
     ctx.globalAlpha = prev;
+    return true;
   }
 
-  drawSkillFxRotated(ctx, fx, cx, cy, size, angle, alpha) {
-    if (!this.skillsImg.complete) return;
-    const r = getSkillSrcRect(fx);
+  drawSvgRotated(ctx, img, cx, cy, w, h, angle, alpha) {
+    if (!img || !img.complete || img.naturalWidth === 0) return false;
     const prev = ctx.globalAlpha;
     if (alpha !== undefined) ctx.globalAlpha = alpha;
     ctx.save();
     ctx.translate(cx, cy);
     ctx.rotate(angle);
-    ctx.drawImage(this.skillsImg, r.sx, r.sy, r.sw, r.sh, -size / 2, -size / 2, size, size);
+    ctx.drawImage(img, -w / 2, -h / 2, w, h);
     ctx.restore();
     ctx.globalAlpha = prev;
+    return true;
   }
 
   // ─── UPDATE ─────────────────────────────────────────────────
@@ -110,19 +114,16 @@ export class BossStage {
 
     this.boss.update(dt, p.x, p.y);
 
-    // Damage from boss attacks
     if (p.alive && p.invulnTimer <= 0) {
       const dmg = this.boss.checkPlayerHit(p.x, p.y, p.radius);
       if (dmg > 0) {
         p.hp -= dmg; p.invulnTimer = 0.5; this.damageFlash = 1;
         if (p.hp <= 0) { p.hp = 0; p.alive = false; this.state = 'defeat'; }
       }
-      // Contact damage
       const bd = Math.sqrt((p.x - this.boss.x) ** 2 + (p.y - this.boss.y) ** 2);
       if (bd < p.radius + this.boss.radius) { p.hp -= 10 * dt; this.damageFlash = 0.3; }
     }
 
-    // Player attacks boss (E / Space)
     if (p.alive && p.attackCooldown <= 0 && (keys['e'] || keys[' '])) {
       const d = Math.sqrt((p.x - this.boss.x) ** 2 + (p.y - this.boss.y) ** 2);
       if (d < PLAYER_ATTACK_RANGE + this.boss.radius) {
@@ -140,35 +141,30 @@ export class BossStage {
     const ctx = this.ctx;
     const w = this.w, h = this.h;
 
-    // Background
     ctx.fillStyle = '#050911';
     ctx.fillRect(0, 0, w, h);
 
-    // Arena floor
+    // Arena
     const ax = this.sx(0), ay = this.sy(0), aw = this.ss(ARENA_W), ah = this.ss(ARENA_H);
     ctx.fillStyle = '#0A0E14';
     ctx.fillRect(ax, ay, aw, ah);
 
-    // Fire-tinted grid
-    ctx.strokeStyle = 'rgba(255, 50, 20, 0.05)';
+    // Subtle fire grid
+    ctx.strokeStyle = 'rgba(255, 40, 15, 0.04)';
     ctx.lineWidth = 1;
     for (let gx = 0; gx <= ARENA_W; gx += 40) { ctx.beginPath(); ctx.moveTo(this.sx(gx), ay); ctx.lineTo(this.sx(gx), ay + ah); ctx.stroke(); }
     for (let gy = 0; gy <= ARENA_H; gy += 40) { ctx.beginPath(); ctx.moveTo(ax, this.sy(gy)); ctx.lineTo(ax + aw, this.sy(gy)); ctx.stroke(); }
 
-    // Arena border
-    ctx.strokeStyle = 'rgba(255, 60, 20, 0.4)';
+    ctx.strokeStyle = 'rgba(255, 50, 20, 0.35)';
     ctx.lineWidth = 2;
     ctx.strokeRect(ax, ay, aw, ah);
 
-    // Ground effects (below characters)
-    this.renderGroundEffects(ctx);
-
-    // Boss — layered: aura → body → cast FX
+    // Ground effects
+    this.renderGroundFx(ctx);
+    // Boss (layered)
     this.renderBoss(ctx);
-
     // Projectiles
     this.renderProjectiles(ctx);
-
     // Player
     this.renderPlayer(ctx);
 
@@ -178,10 +174,8 @@ export class BossStage {
       ctx.fillRect(0, 0, w, h);
     }
 
-    // HUD
     this.renderHUD(ctx, w, h);
 
-    // Victory/Defeat
     if (this.state === 'victory') this.renderOverlay(ctx, w, h, 'BOSS DEFEATED', '#FFD166', `Time: ${this.time.toFixed(1)}s`);
     if (this.state === 'defeat') this.renderOverlay(ctx, w, h, 'DEFEATED', '#FF335C', 'Press R to retry');
   }
@@ -192,78 +186,67 @@ export class BossStage {
 
     const bx = this.sx(b.x);
     const by = this.sy(b.y + b.floatOffset);
-    const bodySize = this.ss(100);
+    const bodySize = this.ss(110);
     const shakeX = b.castShake > 0 ? (Math.random() - 0.5) * 6 : 0;
     const shakeY = b.castShake > 0 ? (Math.random() - 0.5) * 6 : 0;
 
-    // Layer 1: Aura (from skills sheet — fire aura behind body)
-    const auraSize = bodySize * 1.4;
-    this.drawSkillFx(ctx, SKILL_FX.fireBurst, bx, by + bodySize * 0.1, auraSize, b.auraAlpha * 0.5);
+    // Layer 1: Aura glow (procedural — no dirty PNG)
+    const auraGrad = ctx.createRadialGradient(bx, by, 0, bx, by, bodySize * 0.8);
+    auraGrad.addColorStop(0, `rgba(255, 60, 20, ${b.auraAlpha * 0.25})`);
+    auraGrad.addColorStop(1, 'rgba(255, 40, 10, 0)');
+    ctx.fillStyle = auraGrad;
+    ctx.beginPath(); ctx.arc(bx, by, bodySize * 0.8, 0, Math.PI * 2); ctx.fill();
 
-    // Layer 2: Base body (from boss1.png — clean, no fire baked in)
-    this.drawBossPose(ctx, b.currentPose, bx + shakeX, by + shakeY, bodySize);
-
-    // Layer 3: Cast overlay (fire particles around body when casting)
+    // Layer 2: Cast charge (SVG — only when casting)
     if (b.state === 'casting') {
-      const castSize = bodySize * 0.6;
-      const castAlpha = Math.sin(b.stateTimer * 20) * 0.3 + 0.5;
-      this.drawSkillFx(ctx, SKILL_FX.particles, bx + shakeX, by - bodySize * 0.2 + shakeY, castSize, castAlpha);
+      const chargeSize = bodySize * 1.2;
+      const castPulse = Math.sin(b.stateTimer * 18) * 0.3 + 0.6;
+      this.drawSvg(ctx, this.svgs.charge, bx + shakeX, by + shakeY, chargeSize, chargeSize, castPulse);
     }
 
-    // Debug: state label
+    // Layer 3: Boss body (clean SVG — no checkerboard)
+    const deathAlpha = b.alive ? 1 : Math.max(0, 1 - this.victoryTimer);
+    this.drawSvg(ctx, this.svgs.body, bx + shakeX, by - bodySize * 0.15 + shakeY, bodySize, bodySize * 1.4, deathAlpha);
+
+    // Debug state label
     ctx.fillStyle = '#FF8040';
     ctx.font = `bold ${this.ss(10)}px JetBrains Mono, monospace`;
     ctx.textAlign = 'center';
     ctx.fillText(b.state.toUpperCase(), bx, by - bodySize * 0.85);
   }
 
-  renderGroundEffects(ctx) {
+  renderGroundFx(ctx) {
     for (const e of this.boss.effects) {
       const ex = this.sx(e.x), ey = this.sy(e.y);
 
       if (e.type === 'meteor_mark') {
         const r = this.ss(e.radius);
         const pulse = Math.sin(e.timer * 15) * 0.3 + 0.7;
-        // Ground target X from skills sheet
-        this.drawSkillFx(ctx, SKILL_FX.targetX, ex, ey, r * 2.5, pulse * 0.7);
-        // X lines on top
-        const s = r * 0.6;
-        ctx.strokeStyle = `rgba(255, 80, 30, ${pulse})`;
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.moveTo(ex - s, ey - s); ctx.lineTo(ex + s, ey + s);
-        ctx.moveTo(ex + s, ey - s); ctx.lineTo(ex - s, ey + s);
-        ctx.stroke();
+        this.drawSvg(ctx, this.svgs.xMarker, ex, ey, r * 2.5, r * 2.5, pulse * 0.8);
 
       } else if (e.type === 'meteor_explode') {
         const r = this.ss(e.radius * (1 + e.timer * 2));
         const alpha = 1 - e.timer / e.duration;
-        // Fire burst from skills sheet
-        this.drawSkillFx(ctx, SKILL_FX.meteorFall, ex, ey, r * 2.5, alpha);
-        this.drawSkillFx(ctx, SKILL_FX.darkExplosion, ex, ey, r * 2, alpha * 0.6);
+        this.drawSvg(ctx, this.svgs.impact, ex, ey, r * 3, r * 3, alpha);
 
       } else if (e.type === 'ring') {
         const r = this.ss(e.currentRadius);
         const alpha = 1 - e.timer / e.duration;
-        // Fire ring from skills sheet — scale to current radius
-        this.drawSkillFx(ctx, SKILL_FX.fireRing, ex, ey, r * 2.2, alpha * 0.7);
-        this.drawSkillFx(ctx, SKILL_FX.ringGlow, ex, ey, r * 2, alpha * 0.4);
-        // Ring stroke on top
-        ctx.strokeStyle = `rgba(255, 80, 20, ${alpha * 0.6})`;
-        ctx.lineWidth = this.ss(e.ringThickness * 0.5);
+        this.drawSvg(ctx, this.svgs.ring, ex, ey, r * 2.2, r * 2.2, alpha * 0.7);
+        // Extra stroke ring
+        ctx.strokeStyle = `rgba(255, 70, 20, ${alpha * 0.5})`;
+        ctx.lineWidth = this.ss(e.ringThickness * 0.4);
         ctx.beginPath(); ctx.arc(ex, ey, r, 0, Math.PI * 2); ctx.stroke();
 
       } else if (e.type === 'pillar_mark') {
         const r = this.ss(e.radius);
         const pulse = Math.sin(e.timer * 20) * 0.3 + 0.7;
-        this.drawSkillFx(ctx, SKILL_FX.groundMark, ex, ey, r * 2, pulse * 0.6);
+        this.drawSvg(ctx, this.svgs.warning, ex, ey, r * 2, r * 2, pulse * 0.7);
 
       } else if (e.type === 'pillar_fire') {
         const r = this.ss(e.radius);
         const alpha = 1 - e.timer / e.duration;
-        // Fire pillar eruption
-        this.drawSkillFx(ctx, SKILL_FX.firePillar, ex, ey - this.ss(20), r * 2.5, alpha);
-        this.drawSkillFx(ctx, SKILL_FX.burstSpark, ex, ey, r * 1.5, alpha * 0.5);
+        this.drawSvg(ctx, this.svgs.pillar, ex, ey - this.ss(25), r * 2, r * 3, alpha);
       }
     }
   }
@@ -271,16 +254,9 @@ export class BossStage {
   renderProjectiles(ctx) {
     for (const p of this.boss.projectiles) {
       const px = this.sx(p.x), py = this.sy(p.y);
-      const size = this.ss(p.radius * 3);
+      const size = this.ss(p.radius * 3.5);
       const angle = (p.age || 0) * 5;
-      // Fireball sprite from skills sheet
-      this.drawSkillFxRotated(ctx, SKILL_FX.fireball, px, py, size, angle, 0.9);
-      // Glow
-      ctx.shadowColor = '#FF4010';
-      ctx.shadowBlur = this.ss(10);
-      ctx.fillStyle = 'rgba(255, 80, 20, 0.3)';
-      ctx.beginPath(); ctx.arc(px, py, this.ss(p.radius * 0.5), 0, Math.PI * 2); ctx.fill();
-      ctx.shadowBlur = 0;
+      this.drawSvgRotated(ctx, this.svgs.fireball, px, py, size, size, angle, 0.9);
     }
   }
 
@@ -298,12 +274,11 @@ export class BossStage {
     ctx.beginPath(); ctx.arc(px, py, pr, 0, Math.PI * 2); ctx.stroke();
     ctx.shadowBlur = 0;
 
-    // Eyes
     ctx.fillStyle = '#FFF';
     ctx.beginPath(); ctx.arc(px - pr * 0.3, py - pr * 0.2, pr * 0.15, 0, Math.PI * 2); ctx.fill();
     ctx.beginPath(); ctx.arc(px + pr * 0.3, py - pr * 0.2, pr * 0.15, 0, Math.PI * 2); ctx.fill();
 
-    // Attack range when close
+    // Attack range indicator
     const bd = Math.sqrt((p.x - this.boss.x) ** 2 + (p.y - this.boss.y) ** 2);
     if (bd < PLAYER_ATTACK_RANGE + this.boss.radius + 40) {
       ctx.strokeStyle = p.attackCooldown <= 0 ? 'rgba(0, 229, 255, 0.3)' : 'rgba(80, 80, 80, 0.15)';
@@ -317,7 +292,7 @@ export class BossStage {
     const dpr = window.devicePixelRatio || 1;
     const m = 12 * dpr, barW = 200 * dpr, barH = 14 * dpr, fs = 12 * dpr;
 
-    // Boss HP (top center)
+    // Boss HP
     const bx = (w - barW) / 2, by = m;
     ctx.fillStyle = 'rgba(11, 18, 32, 0.92)';
     ctx.fillRect(bx - 10 * dpr, by - 4 * dpr, barW + 20 * dpr, barH + 28 * dpr);
@@ -330,24 +305,21 @@ export class BossStage {
     const hpR = this.boss.hp / this.boss.maxHp;
     ctx.fillStyle = '#1A0A0A'; ctx.fillRect(bx, by + fs + 4 * dpr, barW, barH);
     ctx.fillStyle = hpR > 0.3 ? '#FF4020' : '#FF1010'; ctx.fillRect(bx, by + fs + 4 * dpr, barW * hpR, barH);
-    ctx.strokeStyle = 'rgba(255, 60, 20, 0.6)'; ctx.strokeRect(bx, by + fs + 4 * dpr, barW, barH);
 
     ctx.fillStyle = '#FFF'; ctx.font = `bold ${fs * 0.8}px JetBrains Mono, monospace`;
     ctx.fillText(`${Math.ceil(this.boss.hp)} / ${this.boss.maxHp}`, w / 2, by + fs + barH + 1 * dpr);
 
-    // Player HP (bottom left)
+    // Player HP
     const px = m, py = h - m - barH - fs - 6 * dpr, pW = 130 * dpr;
     ctx.fillStyle = 'rgba(11, 18, 32, 0.92)';
     ctx.fillRect(px - 4 * dpr, py - 4 * dpr, pW + 8 * dpr, barH + fs + 14 * dpr);
-
     ctx.fillStyle = '#00E5FF'; ctx.font = `bold ${fs}px Rajdhani, sans-serif`; ctx.textAlign = 'left';
     ctx.fillText('PLAYER', px, py + fs);
-
     const phpR = this.player.hp / this.player.maxHp;
     ctx.fillStyle = '#0A1A1A'; ctx.fillRect(px, py + fs + 2 * dpr, pW, barH);
     ctx.fillStyle = phpR > 0.3 ? '#00E5FF' : '#FF335C'; ctx.fillRect(px, py + fs + 2 * dpr, pW * phpR, barH);
 
-    // Debug info
+    // Controls hint
     ctx.fillStyle = '#A855F7'; ctx.font = `bold ${fs * 0.75}px JetBrains Mono, monospace`; ctx.textAlign = 'right';
     ctx.fillText(`E=attack | ${this.boss.state} | ${this.time.toFixed(1)}s`, w - m, h - m);
   }
