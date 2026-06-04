@@ -179,8 +179,22 @@
 
       // Tap overlay to interact
       document.getElementById('overlay').addEventListener('click', () => {
-        if (game.state === 'boss') return; // don't interfere with boss mode
+        if (game.state === 'boss') return;
         game.onRetry();
+      });
+
+      // Tap anywhere on canvas to start boss fight (needed for audio policy)
+      canvas.addEventListener('touchstart', () => {
+        if (game.state === 'boss' && game.bossStage && game.bossStage.state === 'waitTap') {
+          game.bossStage.startMusic();
+          game.bossStage.state = 'fighting';
+        }
+      }, { once: false });
+      canvas.addEventListener('click', () => {
+        if (game.state === 'boss' && game.bossStage && game.bossStage.state === 'waitTap') {
+          game.bossStage.startMusic();
+          game.bossStage.state = 'fighting';
+        }
       });
 
       // --- Game loop ---

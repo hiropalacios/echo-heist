@@ -157,8 +157,19 @@ export class BossStage {
     if (this.state === 'loading') {
       this.loadDots += dt;
       if (this.musicReady && this.bossImg.complete && this.skillsImg.complete) {
-        this.state = 'fighting';
-        this.startMusic();
+        this.state = 'waitTap'; // wait for user gesture to play music
+      }
+      return;
+    }
+
+    if (this.state === 'waitTap') {
+      // Any key/touch = user gesture → can play audio
+      for (const k in keys) {
+        if (keys[k]) {
+          this.startMusic();
+          this.state = 'fighting';
+          break;
+        }
       }
       return;
     }
@@ -200,26 +211,34 @@ export class BossStage {
     const ctx = this.ctx, w = this.w, h = this.h;
     ctx.fillStyle = '#050911'; ctx.fillRect(0, 0, w, h);
 
-    // Loading screen
-    if (this.state === 'loading') {
+    // Loading / wait screens
+    if (this.state === 'loading' || this.state === 'waitTap') {
       const dpr = window.devicePixelRatio || 1;
-      const dots = '.'.repeat(Math.floor(this.loadDots * 2) % 4);
       ctx.fillStyle = '#FF5525';
       ctx.font = `bold ${20 * dpr}px Rajdhani, sans-serif`;
       ctx.textAlign = 'center';
-      ctx.fillText('BOSS-1: FIRE ECHO', w / 2, h / 2 - 20 * dpr);
-      ctx.fillStyle = '#91A4B7';
-      ctx.font = `${14 * dpr}px Rajdhani, sans-serif`;
-      ctx.fillText(`Loading${dots}`, w / 2, h / 2 + 10 * dpr);
-      // Progress bar
-      const barW = 150 * dpr, barH = 6 * dpr;
-      const bx = (w - barW) / 2, by = h / 2 + 30 * dpr;
-      ctx.fillStyle = '#1A0808'; ctx.fillRect(bx, by, barW, barH);
-      let progress = 0;
-      if (this.bossImg.complete) progress += 0.33;
-      if (this.skillsImg.complete) progress += 0.33;
-      if (this.musicReady) progress += 0.34;
-      ctx.fillStyle = '#FF4020'; ctx.fillRect(bx, by, barW * progress, barH);
+      ctx.fillText('BOSS-1: FIRE ECHO', w / 2, h / 2 - 24 * dpr);
+
+      if (this.state === 'loading') {
+        const dots = '.'.repeat(Math.floor(this.loadDots * 2) % 4);
+        ctx.fillStyle = '#91A4B7';
+        ctx.font = `${14 * dpr}px Rajdhani, sans-serif`;
+        ctx.fillText(`Loading${dots}`, w / 2, h / 2 + 8 * dpr);
+        const barW = 150 * dpr, barH = 6 * dpr;
+        const bx = (w - barW) / 2, by = h / 2 + 28 * dpr;
+        ctx.fillStyle = '#1A0808'; ctx.fillRect(bx, by, barW, barH);
+        let progress = 0;
+        if (this.bossImg.complete) progress += 0.33;
+        if (this.skillsImg.complete) progress += 0.33;
+        if (this.musicReady) progress += 0.34;
+        ctx.fillStyle = '#FF4020'; ctx.fillRect(bx, by, barW * progress, barH);
+      } else {
+        // waitTap — ready, waiting for user gesture
+        const pulse = 0.5 + Math.sin(this.loadDots * 4) * 0.3;
+        ctx.fillStyle = `rgba(255,85,37,${pulse})`;
+        ctx.font = `bold ${16 * dpr}px Rajdhani, sans-serif`;
+        ctx.fillText('TAP TO FIGHT', w / 2, h / 2 + 12 * dpr);
+      }
       return;
     }
 
