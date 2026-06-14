@@ -58,6 +58,8 @@ export class FireEchoBoss {
     this.repeatCount = 0;
     this.enraged = false;
     this.armageddonUsed = false;
+    this.armageddonActive = false;
+    this.armageddonTimer = 0;
     this.projectiles = [];
     this.effects = [];
     this.floatPhase = 0;
@@ -80,7 +82,7 @@ export class FireEchoBoss {
   }
 
   takeDamage(amount) {
-    if (!this.alive) return;
+    if (!this.alive || this.armageddonActive) return;
     this.hp -= amount;
     this.castShake = 0.15;
     this.hurtFlash = 0.2;
@@ -111,10 +113,18 @@ export class FireEchoBoss {
     // Armageddon — one-time ultra at 30% HP
     if (!this.armageddonUsed && this.hp <= this.maxHp * 0.3) {
       this.armageddonUsed = true;
+      this.armageddonActive = true;
+      this.armageddonTimer = 10.5; // 50 meteors * 200ms + buffer
       this.castArmageddon();
       this.state = 'cooldown';
       this.stateTimer = 0;
-      this.attackCooldown = 3;
+      this.attackCooldown = 12;
+      return;
+    }
+    // During armageddon, boss is invulnerable and doesn't attack
+    if (this.armageddonActive) {
+      this.armageddonTimer -= dt;
+      if (this.armageddonTimer <= 0) this.armageddonActive = false;
       return;
     }
     if (this.attackCooldown > 0) this.attackCooldown -= dt;
