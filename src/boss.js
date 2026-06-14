@@ -57,6 +57,7 @@ export class FireEchoBoss {
     this.lastAttack = -1;
     this.repeatCount = 0;
     this.enraged = false;
+    this.armageddonUsed = false;
     this.projectiles = [];
     this.effects = [];
     this.floatPhase = 0;
@@ -105,7 +106,17 @@ export class FireEchoBoss {
     if (this.castShake > 0) this.castShake = Math.max(0, this.castShake - dt);
     if (this.hurtFlash > 0) this.hurtFlash = Math.max(0, this.hurtFlash - dt);
 
-    for (let i = 0; i < 4; i++) if (this.attackCooldowns[i] > 0) this.attackCooldowns[i] -= dt;
+    for (let i = 0; i < 5; i++) if (this.attackCooldowns[i] > 0) this.attackCooldowns[i] -= dt;
+
+    // Armageddon — one-time ultra at 30% HP
+    if (!this.armageddonUsed && this.hp <= this.maxHp * 0.3) {
+      this.armageddonUsed = true;
+      this.castArmageddon();
+      this.state = 'cooldown';
+      this.stateTimer = 0;
+      this.attackCooldown = 3;
+      return;
+    }
     if (this.attackCooldown > 0) this.attackCooldown -= dt;
 
     // Directional frame helper
@@ -228,9 +239,34 @@ export class FireEchoBoss {
     for (let i = 0; i < 15; i++) {
       setTimeout(() => {
         if (!this.alive) return;
-        const rx = 40 + Math.random() * 520; // random across arena (600 wide)
-        const ry = 40 + Math.random() * 420; // random across arena (500 tall)
+        const rx = 40 + Math.random() * 520;
+        const ry = 40 + Math.random() * 420;
         this.effects.push({ type: 'meteor_mark', x: rx, y: ry, radius: 52, damage: 35, telegraph: 0.4, timer: 0, bossX: this.x, bossY: this.y, ultra: true });
+      }, i * 200);
+    }
+  }
+
+  castArmageddon() {
+    const positions = [];
+    const MIN_DIST = 80; // minimum distance between consecutive meteors
+
+    for (let i = 0; i < 50; i++) {
+      // Generate position avoiding recent 3 positions
+      let rx, ry, attempts = 0;
+      do {
+        rx = 30 + Math.random() * 540;
+        ry = 30 + Math.random() * 440;
+        attempts++;
+        const recent = positions.slice(-3);
+        const tooClose = recent.some(p => Math.sqrt((p.x - rx) ** 2 + (p.y - ry) ** 2) < MIN_DIST);
+        if (!tooClose || attempts > 20) break;
+      } while (true);
+
+      positions.push({ x: rx, y: ry });
+
+      setTimeout(() => {
+        if (!this.alive) return;
+        this.effects.push({ type: 'meteor_mark', x: rx, y: ry, radius: 55, damage: 30, telegraph: 0.35, timer: 0, bossX: this.x, bossY: this.y, ultra: true });
       }, i * 200);
     }
   }
