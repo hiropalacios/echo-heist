@@ -220,9 +220,8 @@ export class BossStage {
         if (c.explodeTimer <= 0) this.clones.splice(i, 1);
       }
     }
-    const wasAbove30 = this.boss.hp > this.boss.maxHp * 0.3;
     this.boss.update(dt, p.x, p.y);
-    if (wasAbove30 && this.boss.hp <= this.boss.maxHp * 0.3) this.armageddonFlash = 1.0;
+    if (this.boss.armageddonActive && this.armageddonFlash <= 0) this.armageddonFlash = 1.0;
     if (p.alive && p.inv <= 0) {
       const dmg = this.boss.checkPlayerHit(p.x, p.y, PR);
       if (dmg > 0) { p.hp -= dmg; p.inv = 0.5; this.dmgFlash = 1; if (p.hp <= 0) { p.hp = 0; p.alive = false; this.state = 'defeat'; } }
