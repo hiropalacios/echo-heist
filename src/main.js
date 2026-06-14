@@ -34,8 +34,9 @@ function setupMobileBtn(id, keyName, isAction) {
   const btn = document.getElementById(id);
   if (!btn) return;
   if (isAction) {
-    btn.addEventListener('touchstart', (e) => { e.preventDefault(); if (keyName === 'r') game.onRetry(); else if (keyName === 'reset') game.onReset(); });
-    btn.addEventListener('click', () => { if (keyName === 'r') game.onRetry(); else if (keyName === 'reset') game.onReset(); });
+    btn.addEventListener('touchstart', (e) => { e.preventDefault(); if (game.state === 'boss') { keys[keyName] = true; return; } if (keyName === 'r') game.onRetry(); else if (keyName === 'reset') game.onReset(); });
+    btn.addEventListener('touchend', (e) => { e.preventDefault(); if (game.state === 'boss') { keys[keyName] = false; } });
+    btn.addEventListener('click', () => { if (game.state === 'boss') { keys[keyName] = true; setTimeout(() => keys[keyName] = false, 100); return; } if (keyName === 'r') game.onRetry(); else if (keyName === 'reset') game.onReset(); });
   } else {
     btn.addEventListener('touchstart', (e) => { e.preventDefault(); keys[keyName] = true; });
     btn.addEventListener('touchend', (e) => { e.preventDefault(); keys[keyName] = false; });
