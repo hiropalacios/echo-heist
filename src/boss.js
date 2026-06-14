@@ -124,7 +124,12 @@ export class FireEchoBoss {
     // During armageddon, boss is invulnerable and doesn't attack
     if (this.armageddonActive) {
       this.armageddonTimer -= dt;
-      if (this.armageddonTimer <= 0) this.armageddonActive = false;
+      if (this.armageddonTimer <= 0) {
+        this.armageddonActive = false;
+        this.attackCooldown = 0;
+        this.state = 'tracking';
+        this.stateTimer = 0;
+      }
       return;
     }
     if (this.attackCooldown > 0) this.attackCooldown -= dt;
