@@ -15,7 +15,10 @@ export class BossStage {
     this.bossImg = new Image(); this.bossImg.src = 'assets/boss-final.png';
     this.skillsImg = new Image(); this.skillsImg.src = 'assets/skills-final.png';
     this.platformImg = new Image(); this.platformImg.src = 'assets/boss1-platform.png';
-    this.player = { x: AW / 2, y: AH - 80, radius: PR, hp: 100, maxHp: 100, speed: PS, alive: true, acd: 0, inv: 0 };
+    this.playerIdleImg = new Image(); this.playerIdleImg.src = 'assets/player_thief_idle.png';
+    this.playerWalkImg = new Image(); this.playerWalkImg.src = 'assets/player_thief_walk.png';
+    this.player = { x: AW / 2, y: AH - 80, radius: PR, hp: 100, maxHp: 100, speed: PS, alive: true, acd: 0, inv: 0, moving: false, animFrame: 0 };
+    this.clones = []; // explosive clones
     this.boss = new FireEchoBoss(AW / 2, 100);
     this.state = 'loading'; this.time = 0; this.dmgFlash = 0; this.ultraFlash = 0; this.vt = 0;
 
@@ -186,11 +189,36 @@ export class BossStage {
       if (keys['a'] || keys['arrowleft']) dx -= 1;
       if (keys['d'] || keys['arrowright']) dx += 1;
       const len = Math.sqrt(dx * dx + dy * dy);
+      p.moving = len > 0;
       if (len > 0) { p.x += (dx / len) * p.speed * dt; p.y += (dy / len) * p.speed * dt; }
       p.x = Math.max(PR, Math.min(AW - PR, p.x));
       p.y = Math.max(PR, Math.min(AH - PR, p.y));
+      p.animFrame += dt * 8;
       if (p.acd > 0) p.acd -= dt;
       if (p.inv > 0) p.inv -= dt;
+      // Clone explosive — R to drop clone
+      if (keys['r']) {
+        this.clones.push({ x: p.x, y: p.y, timer: 2.5, exploded: false, radius: 60, damage: 40 });
+        keys['r'] = false;
+      }
+    }
+    // Update clones
+    for (let i = this.clones.length - 1; i >= 0; i--) {
+      const c = this.clones[i];
+      c.timer -= dt;
+      if (c.timer <= 0 && !c.exploded) {
+        c.exploded = true;
+        c.explodeTimer = 0.5;
+        // Damage boss if in range
+        const cd = Math.sqrt((c.x - this.boss.x) ** 2 + (c.y - this.boss.y) ** 2);
+        if (cd < c.radius + this.boss.radius) {
+          this.boss.takeDamage(c.damage);
+        }
+      }
+      if (c.exploded) {
+        c.explodeTimer -= dt;
+        if (c.explodeTimer <= 0) this.clones.splice(i, 1);
+      }
     }
     this.boss.update(dt, p.x, p.y);
     if (p.alive && p.inv <= 0) {
@@ -427,24 +455,68 @@ export class BossStage {
     }
   }
 
+  drawPlayerSprite(ctx, screenX, screenY, size, animFrame, moving, alpha) {
+    const img = moving ? this.playerWalkImg : this.playerIdleImg;
+    const frameCount = moving ? 6 : 4;
+    const frameW = 256, frameH = 256;
+    if (!img || !img.complete) {
+      // Fallback circle
+      ctx.fillStyle = '#0A1628'; ctx.beginPath(); ctx.arc(screenX, screenY, size * 0.3, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#00E5FF'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(screenX, screenY, size * 0.3, 0, Math.PI * 2); ctx.stroke();
+      return;
+    }
+    const fi = Math.floor(animFrame) % frameCount;
+    const sx = fi * frameW;
+    const prev = ctx.globalAlpha;
+    if (alpha !== undefined) ctx.globalAlpha = alpha;
+    ctx.drawImage(img, sx, 0, frameW, frameH, screenX - size / 2, screenY - size / 2, size, size);
+    ctx.globalAlpha = prev;
+  }
+
   renderPlayer(ctx) {
     const p = this.player;
     if (!p.alive) return;
     if (p.inv > 0 && Math.floor(p.inv * 10) % 2) return;
-    const px = this.sx(p.x), py = this.sy(p.y), pr = this.ss(PR);
-    ctx.shadowColor = '#00E5FF'; ctx.shadowBlur = this.ss(10);
-    ctx.fillStyle = '#0A1628'; ctx.beginPath(); ctx.arc(px, py, pr, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = '#00E5FF'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(px, py, pr, 0, Math.PI * 2); ctx.stroke();
-    ctx.shadowBlur = 0;
-    ctx.fillStyle = '#FFF';
-    ctx.beginPath(); ctx.arc(px - pr * 0.3, py - pr * 0.2, pr * 0.15, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.arc(px + pr * 0.3, py - pr * 0.2, pr * 0.15, 0, Math.PI * 2); ctx.fill();
+    const px = this.sx(p.x), py = this.sy(p.y);
+    const size = this.ss(50);
+
+    // Draw player sprite
+    this.drawPlayerSprite(ctx, px, py, size, p.animFrame, p.moving, 1);
+
+    // Attack range indicator
     const bd = Math.sqrt((p.x - this.boss.x) ** 2 + (p.y - this.boss.y) ** 2);
     if (bd < PAR + this.boss.radius + 40) {
       ctx.strokeStyle = p.acd <= 0 ? 'rgba(0,229,255,0.25)' : 'rgba(60,60,60,0.12)';
       ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
       ctx.beginPath(); ctx.arc(px, py, this.ss(PAR), 0, Math.PI * 2); ctx.stroke();
       ctx.setLineDash([]);
+    }
+
+    // Render clones
+    for (const c of this.clones) {
+      const cx = this.sx(c.x), cy = this.sy(c.y);
+      if (c.exploded) {
+        // Explosion effect
+        const a = c.explodeTimer / 0.5;
+        this.drawFx(ctx, BOSS1_SKILLS.meteorImpact, cx, cy, this.ss(c.radius * 2.5), a * 0.8);
+        this.drawEmberScatter(ctx, cx, cy, this.ss(c.radius * 0.5), 6, 1 - a, a * 0.5);
+      } else {
+        // Clone waiting to explode — draw player sprite with cyan tint
+        const pulse = Math.sin(this.time * 6) * 0.15 + 0.5;
+        this.drawPlayerSprite(ctx, cx, cy, size, 0, false, pulse);
+        // Timer indicator ring
+        const progress = 1 - c.timer / 2.5;
+        ctx.strokeStyle = `rgba(0,229,255,${0.5 + pulse * 0.3})`;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(cx, cy, size * 0.4, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * progress);
+        ctx.stroke();
+        // "CLONE" label
+        ctx.fillStyle = `rgba(0,229,255,${pulse})`;
+        ctx.font = `bold ${this.ss(7)}px JetBrains Mono, monospace`;
+        ctx.textAlign = 'center';
+        ctx.fillText('CLONE', cx, cy - size * 0.4);
+      }
     }
   }
 
