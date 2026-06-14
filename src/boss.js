@@ -71,7 +71,7 @@ export class FireEchoBoss {
       { name: 'fireball', cooldown: 1.4 },
       { name: 'ring', cooldown: 3.5 },
       { name: 'pillars', cooldown: 4.2 },
-      { name: 'ultra_meteor', cooldown: 8.0 },
+      { name: 'ultra_meteor', cooldown: 4.0 },
     ];
     this.attackCooldowns = [0, 0, 0, 0, 0];
     this.targetX = 0;
