@@ -14,6 +14,7 @@ export class BossStage {
     this.scale = 1; this.ox = 0; this.oy = 0;
     this.bossImg = new Image(); this.bossImg.src = 'assets/boss-final.png';
     this.skillsImg = new Image(); this.skillsImg.src = 'assets/skills-final.png';
+    this.platformImg = new Image(); this.platformImg.src = 'assets/boss1-platform.png';
     this.player = { x: AW / 2, y: AH - 80, radius: PR, hp: 100, maxHp: 100, speed: PS, alive: true, acd: 0, inv: 0 };
     this.boss = new FireEchoBoss(AW / 2, 100);
     this.state = 'loading'; this.time = 0; this.dmgFlash = 0; this.vt = 0;
@@ -156,7 +157,7 @@ export class BossStage {
     // Loading: wait for music + assets
     if (this.state === 'loading') {
       this.loadDots += dt;
-      if (this.musicReady && this.bossImg.complete && this.skillsImg.complete) {
+      if (this.musicReady && this.bossImg.complete && this.skillsImg.complete && this.platformImg.complete) {
         this.state = 'waitTap'; // wait for user gesture to play music
       }
       return;
@@ -228,9 +229,10 @@ export class BossStage {
         const bx = (w - barW) / 2, by = h / 2 + 28 * dpr;
         ctx.fillStyle = '#1A0808'; ctx.fillRect(bx, by, barW, barH);
         let progress = 0;
-        if (this.bossImg.complete) progress += 0.33;
-        if (this.skillsImg.complete) progress += 0.33;
-        if (this.musicReady) progress += 0.34;
+        if (this.bossImg.complete) progress += 0.25;
+        if (this.skillsImg.complete) progress += 0.25;
+        if (this.platformImg.complete) progress += 0.25;
+        if (this.musicReady) progress += 0.25;
         ctx.fillStyle = '#FF4020'; ctx.fillRect(bx, by, barW * progress, barH);
       } else {
         // waitTap — ready, waiting for user gesture
@@ -266,19 +268,40 @@ export class BossStage {
     const bx = this.sx(b.x), by = this.sy(b.y + b.floatOffset);
     const sz = this.ss(115);
     const shk = b.castShake > 0 ? (Math.random() - 0.5) * 3 * (b.castShake / 0.3) : 0;
+    // Check if ring effect is still active
+    const ringActive = b.effects.some(e => e.type === 'ring');
+    const isRingMode = (b.state === 'casting' && b.currentAttack === 2) || (b.state === 'cooldown' && b.lastAttack === 2 && ringActive);
 
-    // Layer 1: Code-driven fire aura (NO sprite aura — those have boss body baked in)
+    if (isRingMode) {
+      // Flame ring — ONLY shieldBarrier, offset to match boss position
+      const cp = 0.4 + Math.sin(this.time * 16) * 0.25;
+      const offX = this.ss(8);  // shift right to align with boss center
+      const offY = this.ss(25);  // shift down to align with boss center
+      this.drawFx(ctx, BOSS1_SKILLS.shieldBarrier, bx + offX, by + offY, sz * 1.1, cp * 0.8);
+      return;
+    }
+
+    // Layer 0: Platform image under boss
+    if (this.platformImg.complete) {
+      const pw = this.ss(100), ph = this.ss(48);
+      const pa = ctx.globalAlpha;
+      ctx.globalAlpha = 0.8;
+      ctx.drawImage(this.platformImg, 0, 0, 418, 200, bx - pw/2, by + sz * 0.35, pw, ph);
+      ctx.globalAlpha = pa;
+    }
+
+    // Layer 1: Code-driven fire aura
     this.drawFireAura(ctx, bx, by, sz * 0.6, b.auraAlpha);
 
     // Layer 2: Subtle ember particles around boss
     this.drawFireParticles(ctx, bx, by, sz * 0.5, 6, this.time, b.auraAlpha * 0.7);
 
-    // Layer 3: Cast effects — castSigil + castCharge are clean, use those
+    // Layer 3: Cast effects for non-ring attacks
     if (b.state === 'casting') {
       const cp = 0.4 + Math.sin(b.stateTimer * 16) * 0.25;
       this.drawFireAura(ctx, bx + shk, by + shk, sz * 0.9, cp * 0.6);
       this.drawFxRot(ctx, BOSS1_SKILLS.castSigil, bx, by + sz * 0.25, sz * 0.6, b.stateTimer * 3, cp * 0.5);
-      this.drawFx(ctx, BOSS1_SKILLS.castCharge, bx + shk, by + shk, sz * 0.5, cp * 0.4);
+      this.drawFx(ctx, BOSS1_SKILLS.chargeAura, bx + shk, by + shk, sz * 0.9, cp * 0.6);
       this.drawFireParticles(ctx, bx, by, sz * 0.7, 10, this.time * 2, cp);
     }
 
@@ -317,24 +340,45 @@ export class BossStage {
 
       } else if (e.type === 'meteor_explode') {
         const r = this.ss(e.radius), a = 1 - e.timer / e.duration;
-        // Meteor descending — CLEAN cell
-        if (e.timer < 0.15) {
-          const meteorSize = r * 1.5;
-          this.drawFx(ctx, BOSS1_SKILLS.meteor, ex, ey - r * (1 - e.timer * 6), meteorSize, a);
+        // Meteor descending angularly from boss position
+        if (e.timer < 0.2) {
+          const meteorSize = r * 1.8;
+          const t = e.timer / 0.2; // 0 to 1 during descent
+          const startX = e.bossX != null ? this.sx(e.bossX) : ex;
+          const startY = e.bossY != null ? this.sy(e.bossY) - this.ss(60) : ey - r * 3;
+          const mx = startX + (ex - startX) * t;
+          const my = startY + (ey - startY) * t;
+          const fallAngle = Math.atan2(ey - startY, ex - startX) - Math.atan2(1, -1);
+          this.drawFxRot(ctx, BOSS1_SKILLS.meteor, mx, my, meteorSize * (1 - t * 0.3), fallAngle, 1 - t * 0.3);
         }
-        // Impact — CODE-DRIVEN fire burst (replaces dirty fireBurst cell)
-        this.drawFireBurst(ctx, ex, ey, r * (1 + e.timer * 2.5), a * 0.8);
-        this.drawEmberScatter(ctx, ex, ey, r, 6, e.timer * 2, a * 0.5);
-        // Faint ground mark using code
-        this.drawFireAura(ctx, ex, ey, r * 0.8, a * 0.2);
+        // Impact — smokePuff explosion
+        if (e.timer >= 0.15) {
+          const impactT = (e.timer - 0.15) / (e.duration - 0.15);
+          const impactA = 1 - impactT;
+          this.drawFx(ctx, BOSS1_SKILLS.smokePuff, ex, ey, r * (2 + impactT * 1.5), impactA * 0.8);
+          this.drawEmberScatter(ctx, ex, ey, r, 6, impactT, impactA * 0.5);
+        }
 
       } else if (e.type === 'ring') {
         const r = this.ss(e.currentRadius), a = 1 - e.timer / e.duration;
-        // CLEAN: flameRing cell is good
-        this.drawFx(ctx, BOSS1_SKILLS.flameRing, ex, ey, r * 2.2, a * 0.55);
-        // Crisp ring stroke
-        ctx.strokeStyle = `rgba(255,55,12,${a * 0.4})`; ctx.lineWidth = this.ss(e.ringThickness * 0.25);
+        // Fire ring expanding outward — code-driven, no center circle
+        this.drawFireBurst(ctx, ex, ey, r * 0.3, a * 0.15); // subtle origin glow only
+        // Crisp expanding fire ring
+        ctx.strokeStyle = `rgba(255,55,12,${a * 0.6})`; ctx.lineWidth = this.ss(e.ringThickness * 0.4);
+        ctx.shadowColor = `rgba(255,40,10,${a * 0.5})`; ctx.shadowBlur = this.ss(8);
         ctx.beginPath(); ctx.arc(ex, ey, r, 0, Math.PI * 2); ctx.stroke();
+        // Outer glow ring
+        ctx.strokeStyle = `rgba(255,100,30,${a * 0.25})`; ctx.lineWidth = this.ss(e.ringThickness * 0.15);
+        ctx.beginPath(); ctx.arc(ex, ey, r * 1.1, 0, Math.PI * 2); ctx.stroke();
+        ctx.shadowBlur = 0;
+        // Ember particles along the ring
+        for (let i = 0; i < 8; i++) {
+          const ang = (i / 8) * Math.PI * 2 + e.timer * 4;
+          const px = ex + Math.cos(ang) * r;
+          const py = ey + Math.sin(ang) * r;
+          ctx.fillStyle = `rgba(255,${80 + i * 15},15,${a * 0.7})`;
+          ctx.beginPath(); ctx.arc(px, py, this.ss(3), 0, Math.PI * 2); ctx.fill();
+        }
 
       } else if (e.type === 'pillar_mark') {
         const r = this.ss(e.radius), pulse = Math.sin(e.timer * 18) * 0.3 + 0.7;
@@ -346,20 +390,23 @@ export class BossStage {
 
       } else if (e.type === 'pillar_fire') {
         const r = this.ss(e.radius), a = 1 - e.timer / e.duration;
-        // CODE-DRIVEN flame pillar (replaces dirty flamePillar cell with baked base)
-        this.drawFlamePillarCode(ctx, ex, ey, r * 0.8, this.ss(50) * a, a * 0.9);
+        const pillarSize = r * 3;
+        this.drawFx(ctx, BOSS1_SKILLS.flamePillar, ex, ey - pillarSize * 0.25, pillarSize, a * 0.85);
         this.drawEmberScatter(ctx, ex, ey - this.ss(15), r * 0.4, 4, e.timer, a * 0.4);
       }
     }
   }
 
   renderProjectiles(ctx) {
+    const SPRITE_BASE = Math.atan2(1, -1); // sprite faces lower-left (~2.36 rad)
     for (const p of this.boss.projectiles) {
       const px = this.sx(p.x), py = this.sy(p.y), sz = this.ss(p.radius * 3);
-      const angle = (p.age || 0) * 6;
-      const pulse = 0.85 + Math.sin((p.age || 0) * 12) * 0.15;
-      // CLEAN: fireball cell is a clean projectile
-      this.drawFxRot(ctx, BOSS1_SKILLS.fireball, px, py, sz * pulse, angle, 0.85);
+      const travelAngle = Math.atan2(p.vy, p.vx);
+      const rotation = travelAngle - SPRITE_BASE;
+      const pulse = 1;
+
+      this.drawFxRot(ctx, BOSS1_SKILLS.fireball, px, py, sz * pulse, rotation, 0.85);
+
       // Code-driven glow trail
       ctx.fillStyle = `rgba(255,60,15,0.15)`;
       ctx.beginPath(); ctx.arc(px, py, this.ss(p.radius * 0.6), 0, Math.PI * 2); ctx.fill();
