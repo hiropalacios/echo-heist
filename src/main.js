@@ -21,8 +21,8 @@ const keys = {};
 window.addEventListener('keydown', (e) => {
   keys[e.key.toLowerCase()] = true;
 
-  if (e.key.toLowerCase() === 'r') game.onRetry();
-  if (e.key === ' ') { e.preventDefault(); game.onReset(); }
+  if (e.key.toLowerCase() === 'r' && game.state !== 'boss') game.onRetry();
+  if (e.key === ' ' && game.state !== 'boss') { e.preventDefault(); game.onReset(); }
   if (e.key === 'Escape') game.onPause();
 });
 window.addEventListener('keyup', (e) => {
