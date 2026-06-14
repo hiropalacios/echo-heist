@@ -47,7 +47,7 @@ export class FireEchoBoss {
     this.y = y;
     this.hp = 300;
     this.maxHp = 300;
-    this.radius = 40;
+    this.radius = 55;
     this.alive = true;
     this.state = 'idle';
     this.stateTimer = 0;
@@ -191,7 +191,7 @@ export class FireEchoBoss {
       let w = 1;
       if (dist < 120 && i === 2) w = 3;
       else if (dist > 260 && i <= 1) w = 2;
-      else if (i === 4) w = 1; // ultra meteor — same base weight
+      if (i === 4 && Math.random() > 0.25) continue; // ultra meteor — 1/4 chance
       for (let j = 0; j < w; j++) avail.push(i);
     }
     return avail.length === 0 ? -1 : avail[Math.floor(Math.random() * avail.length)];
@@ -225,12 +225,12 @@ export class FireEchoBoss {
   }
 
   castUltraMeteor() {
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 15; i++) {
       setTimeout(() => {
         if (!this.alive) return;
         const rx = 40 + Math.random() * 520; // random across arena (600 wide)
         const ry = 40 + Math.random() * 420; // random across arena (500 tall)
-        this.effects.push({ type: 'meteor_mark', x: rx, y: ry, radius: 52, damage: 35, telegraph: 0.4, timer: 0, bossX: this.x, bossY: this.y });
+        this.effects.push({ type: 'meteor_mark', x: rx, y: ry, radius: 52, damage: 35, telegraph: 0.4, timer: 0, bossX: this.x, bossY: this.y, ultra: true });
       }, i * 200);
     }
   }

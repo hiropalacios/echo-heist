@@ -17,7 +17,7 @@ export class BossStage {
     this.platformImg = new Image(); this.platformImg.src = 'assets/boss1-platform.png';
     this.player = { x: AW / 2, y: AH - 80, radius: PR, hp: 100, maxHp: 100, speed: PS, alive: true, acd: 0, inv: 0 };
     this.boss = new FireEchoBoss(AW / 2, 100);
-    this.state = 'loading'; this.time = 0; this.dmgFlash = 0; this.vt = 0;
+    this.state = 'loading'; this.time = 0; this.dmgFlash = 0; this.ultraFlash = 0; this.vt = 0;
 
     // Boss music — preload before starting
     this.music = new Audio('assets/track-boss.mp3');
@@ -197,7 +197,7 @@ export class BossStage {
       const dmg = this.boss.checkPlayerHit(p.x, p.y, PR);
       if (dmg > 0) { p.hp -= dmg; p.inv = 0.5; this.dmgFlash = 1; if (p.hp <= 0) { p.hp = 0; p.alive = false; this.state = 'defeat'; } }
       const bd = Math.sqrt((p.x - this.boss.x) ** 2 + (p.y - this.boss.y) ** 2);
-      if (bd < PR + this.boss.radius) { p.hp -= 10 * dt; this.dmgFlash = 0.3; }
+      if (bd < PR + this.boss.radius) { p.hp -= 25 * dt; p.inv = 0.15; this.dmgFlash = 0.8; }
     }
     if (p.alive && p.acd <= 0 && (keys['e'] || keys[' '])) {
       const d = Math.sqrt((p.x - this.boss.x) ** 2 + (p.y - this.boss.y) ** 2);
@@ -257,6 +257,13 @@ export class BossStage {
     this.renderPlayer(ctx);
 
     if (this.dmgFlash > 0) { ctx.fillStyle = `rgba(255,30,10,${this.dmgFlash * 0.2})`; ctx.fillRect(0, 0, w, h); }
+    // Ultra meteor danger flash — red screen flicker
+    if (this.ultraFlash > 0) {
+      const flicker = Math.sin(this.time * 25) * 0.15 + 0.2;
+      ctx.fillStyle = `rgba(255,10,0,${this.ultraFlash * flicker})`;
+      ctx.fillRect(0, 0, w, h);
+      this.ultraFlash -= 0.02;
+    }
     this.renderHUD(ctx, w, h);
     if (this.state === 'victory') this.renderEnd(ctx, w, h, 'BOSS DEFEATED', '#FFD166', `Time: ${this.time.toFixed(1)}s`);
     if (this.state === 'defeat') this.renderEnd(ctx, w, h, 'DEFEATED', '#FF335C', 'Press R to retry');
@@ -299,10 +306,16 @@ export class BossStage {
     // Layer 3: Cast effects for non-ring attacks
     if (b.state === 'casting') {
       const cp = 0.4 + Math.sin(b.stateTimer * 16) * 0.25;
-      this.drawFireAura(ctx, bx + shk, by + shk, sz * 0.9, cp * 0.6);
-      this.drawFxRot(ctx, BOSS1_SKILLS.castSigil, bx, by + sz * 0.25, sz * 0.6, b.stateTimer * 3, cp * 0.5);
-      this.drawFx(ctx, BOSS1_SKILLS.chargeAura, bx + shk, by + shk, sz * 0.9, cp * 0.6);
-      this.drawFireParticles(ctx, bx, by, sz * 0.7, 10, this.time * 2, cp);
+      if (b.currentAttack === 4) {
+        // Ultra meteor — danger cast + screen flash
+        this.drawFx(ctx, BOSS1_SKILLS.chargeAura, bx + shk, by + shk, sz * 1.2, cp * 0.8);
+        this.ultraFlash = 1.5;
+      } else {
+        this.drawFireAura(ctx, bx + shk, by + shk, sz * 0.9, cp * 0.6);
+        this.drawFxRot(ctx, BOSS1_SKILLS.castSigil, bx, by + sz * 0.25, sz * 0.6, b.stateTimer * 3, cp * 0.5);
+        this.drawFx(ctx, BOSS1_SKILLS.chargeAura, bx + shk, by + shk, sz * 0.9, cp * 0.6);
+        this.drawFireParticles(ctx, bx, by, sz * 0.7, 10, this.time * 2, cp);
+      }
     }
 
     // Layer 4: Boss body
@@ -351,11 +364,12 @@ export class BossStage {
           const fallAngle = Math.atan2(ey - startY, ex - startX) - Math.atan2(1, -1);
           this.drawFxRot(ctx, BOSS1_SKILLS.meteor, mx, my, meteorSize * (1 - t * 0.3), fallAngle, 1 - t * 0.3);
         }
-        // Impact — smokePuff explosion
+        // Impact explosion
         if (e.timer >= 0.15) {
           const impactT = (e.timer - 0.15) / (e.duration - 0.15);
           const impactA = 1 - impactT;
-          this.drawFx(ctx, BOSS1_SKILLS.smokePuff, ex, ey, r * (2 + impactT * 1.5), impactA * 0.8);
+          const impactSprite = e.ultra ? BOSS1_SKILLS.deathExplosion : BOSS1_SKILLS.smokePuff;
+          this.drawFx(ctx, impactSprite, ex, ey, r * (2 + impactT * 1.5), impactA * 0.8);
           this.drawEmberScatter(ctx, ex, ey, r, 6, impactT, impactA * 0.5);
         }
 
