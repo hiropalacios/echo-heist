@@ -71,7 +71,7 @@ export class FireEchoBoss {
       { name: 'fireball', cooldown: 1.4 },
       { name: 'ring', cooldown: 3.5 },
       { name: 'pillars', cooldown: 4.2 },
-      { name: 'ultra_meteor', cooldown: 4.0 },
+      { name: 'ultra_meteor', cooldown: 5.0 },
     ];
     this.attackCooldowns = [0, 0, 0, 0, 0];
     this.targetX = 0;
@@ -191,7 +191,7 @@ export class FireEchoBoss {
       let w = 1;
       if (dist < 120 && i === 2) w = 3;
       else if (dist > 260 && i <= 1) w = 2;
-      if (i === 4 && Math.random() > 0.25) continue; // ultra meteor — 1/4 chance
+      if (i === 4 && Math.random() > 0.333) continue; // ultra meteor — 1/3 chance
       for (let j = 0; j < w; j++) avail.push(i);
     }
     return avail.length === 0 ? -1 : avail[Math.floor(Math.random() * avail.length)];
