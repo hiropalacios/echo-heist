@@ -116,10 +116,10 @@
       const keys = {};
       window.addEventListener('keydown', (e) => {
         keys[e.key.toLowerCase()] = true;
-        if (e.key.toLowerCase() === 'r') game.onRetry();
-        if (e.key.toLowerCase() === 'e') game.activateEmp();
-        if (e.key.toLowerCase() === 'n') game.onSkipLevel();
-        if (e.key === ' ') { e.preventDefault(); game.onReset(); }
+        if (e.key.toLowerCase() === 'r' && game.state !== 'boss') game.onRetry();
+        if (e.key.toLowerCase() === 'e' && game.state !== 'boss') game.activateEmp();
+        if (e.key.toLowerCase() === 'n' && game.state !== 'boss') game.onSkipLevel();
+        if (e.key === ' ' && game.state !== 'boss') { e.preventDefault(); game.onReset(); }
       });
       window.addEventListener('keyup', (e) => { keys[e.key.toLowerCase()] = false; });
 
@@ -173,9 +173,9 @@
         btn.addEventListener('touchstart', (e) => { e.preventDefault(); fn(); });
         btn.addEventListener('click', fn);
       }
-      setupAction('btn-emp', () => game.activateEmp());
-      setupAction('btn-retry', () => game.onRetry());
-      setupAction('btn-reset', () => game.onReset());
+      setupAction('btn-emp', () => { if (game.state !== 'boss') game.activateEmp(); });
+      setupAction('btn-retry', () => { if (game.state === 'boss') { keys['r'] = true; setTimeout(() => keys['r'] = false, 100); } else game.onRetry(); });
+      setupAction('btn-reset', () => { if (game.state !== 'boss') game.onReset(); });
 
       // Tap overlay to interact
       document.getElementById('overlay').addEventListener('click', () => {
